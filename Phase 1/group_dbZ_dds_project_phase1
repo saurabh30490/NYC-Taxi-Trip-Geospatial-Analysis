@@ -1,0 +1,82 @@
+/* youtube video link https://www.youtube.com/watch?v=jao47abaLv8 */
+
+
+import org.apache.spark.storage.StorageLevel;
+import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.Coordinate;
+import org.datasyslab.geospark.enums.FileDataSplitter;
+import org.datasyslab.geospark.spatialOperator.RangeQuery; 
+import org.datasyslab.geospark.spatialRDD.PointRDD;
+import org.datasyslab.geospark.enums.IndexType;
+import org.datasyslab.geospark.spatialOperator.KNNQuery;
+import org.datasyslab.geospark.spatialRDD.PointRDD;
+import org.datasyslab.geospark.spatialOperator.JoinQuery;
+import org.datasyslab.geospark.spatialRDD.RectangleRDD;
+import org.datasyslab.geospark.enums.GridType;
+
+
+/* Spatial Range Query without Index */
+
+val envelope=new Envelope (-113.79,-109.73, 35.08, 32.99);
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+val resultSize = RangeQuery.SpatialRangeQuery(rdd, envelope, false, false).count();
+println(resultSize);
+
+
+/* Spatial Range Query with Index */
+
+val envelope=new Envelope (-113.79,-109.73, 35.08, 32.99);
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+rdd.buildIndex(IndexType.RTREE,false);
+val resultSize = RangeQuery.SpatialRangeQuery(rdd, envelope, false, true).count();
+println(resultSize)
+
+/* Spatial KNN Query without Index */
+
+val fact=new GeometryFactory();
+val point=fact.createPoint(new Coordinate(35.08, -113.79));
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+val resultSize = KNNQuery.SpatialKnnQuery(rdd, point, 5,false).size();
+println(resultSize);
+
+/* Spatial KNN Query with Index */
+
+val fact=new GeometryFactory();
+val point=fact.createPoint(new Coordinate(35.08, -113.79));
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+rdd.buildIndex(IndexType.RTREE,false);
+val resultSize = KNNQuery.SpatialKnnQuery(rdd, point, 5,true).size();
+println(resultSize);
+
+
+/* Spatial Join Query without Index */
+
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+val rectangleRDD = new RectangleRDD(sc, "hdfs://192.168.0.41:54310/zcta510.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+rdd.spatialPartitioning(GridType.EQUALGRID);
+rectangleRDD.spatialPartitioning(rdd.grids);
+val resultSize = JoinQuery.SpatialJoinQuery(rdd,rectangleRDD,false,false).count();
+println(resultSize);
+
+/* Spatial Join Query with Index */
+
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+val rectangleRDD = new RectangleRDD(sc, "hdfs://192.168.0.41:54310/zcta510.csv", 0, FileDataSplitter.CSV, false); 
+rdd.spatialPartitioning(GridType.EQUALGRID);
+rdd.buildIndex(IndexType.RTREE,true);
+rectangleRDD.spatialPartitioning(rdd.grids);
+val resultSize = JoinQuery.SpatialJoinQuery(rdd,rectangleRDD,true, false).count();
+println(resultSize);
+
+
+/* Spatial Join Query with R-Tree Grid without Index */
+
+val rdd = new PointRDD(sc, "hdfs://192.168.0.41:54310/arealm.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+val rectangleRDD = new RectangleRDD(sc, "hdfs://192.168.0.41:54310/zcta510.csv", 0, FileDataSplitter.CSV, false, StorageLevel.MEMORY_ONLY); 
+rdd.spatialPartitioning(GridType.RTREE);
+rectangleRDD.spatialPartitioning(rdd.grids);
+val resultSize = JoinQuery.SpatialJoinQuery(rdd,rectangleRDD,false,false).count();
+println(resultSize);
+
